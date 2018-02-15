@@ -5,7 +5,7 @@ import cats.{Contravariant, Functor, derive}
 //import example.Filterable._
 //import org.scalacheck.ScalacheckShapeless._
 import io.chymyst.ch._
-import example.FilterableWithFilter
+import example.{ContraFilterableWithFilter, FilterableWithFilter}
 
 object Ch6 {
 
@@ -141,11 +141,42 @@ object Ch6 {
       }
     }
 
-    object Problem6 {
 
+    object Problem6 {
+      final case class R[A](x: Int, y: Int, z: A, data: List[A])
+
+      // implicit val functorR = derive.functor[R]
+      // implicit val withFilterR = new FilterableWithFilter[R] {
+      //   override def withFilter[A](p: A => Boolean)(fa: R[A]): R[A] = {
+      //     val filteredData = for {
+      //       x <- fa.data
+      //       if p(x)
+      //     } yield x
+      //     R(fa.x, fa.y, fa.z, filteredData)
+      //   }
+      // }
+
+      // R is not filterable because there is nothing to be done for R.z if it fails the predicate
     }
 
+    object Problem7 {
+      // C[A] ≡ A + A × A ⇒ 1 + Z
+      type C[-A, +Z] = (A, A, A) => Option[Z]
 
+      // Define contrafunctor, same as workedexamples problem 8
+      implicit def contraC[Z] = new Contravariant[C[?, Z]] {
+        override def contramap[A, B](fa: C[A, Z])(f: B ⇒ A): C[B, Z] = { (b1, b2, b3) =>
+          fa(f(b1), f(b2), f(b3))
+        }
+      }
+
+      // Define filterable
+      implicit def contrafilterC[Z] = new ContraFilterableWithFilter[C[?, Z]] {
+        override def withFilter[A](p: A ⇒ Boolean)(fa: C[A, Z]): C[A, Z] = {
+          (a1: A, a2: A, a3: A) ⇒ if (p(a1) && p(a2) && p(a3)) fa(a1, a2, a3) else None
+        }
+      }
+    }
   }
 
 }

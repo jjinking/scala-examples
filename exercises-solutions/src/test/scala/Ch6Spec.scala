@@ -3,14 +3,14 @@ package swscala.unit
 import cats.syntax.functor._
 import org.scalacheck.Arbitrary
 import org.scalacheck.ScalacheckShapeless._
-import org.scalatest.FlatSpec
+import org.scalatest.{Assertion, FlatSpec}
 
 import example.Filterable._
-import example.FilterableLawChecking
+import example.{ContraFilterableWithFilter, ContraFilterableLawChecking, FilterableLawChecking}
 
 import swscala._
 
-class Ch6Spec extends FlatSpec with FilterableLawChecking {
+class Ch6Spec extends FlatSpec with FilterableLawChecking with ContraFilterableLawChecking {
 
   import Ch6._
 
@@ -83,6 +83,28 @@ class Ch6Spec extends FlatSpec with FilterableLawChecking {
 
     checkFilterableLawsWithFilter[MyTree, Int, Boolean]()
     checkFilterableLawsWithFilter[MyTree, String, Double]()
+  }
+
+  // it should "Problem 6" in {
+  //   import Part1.Problem6._
+
+  //   checkFilterableLawsWithFilter[R, Int, Boolean]()
+  //   checkFilterableLawsWithFilter[R, String, Double]()
+  // }
+
+  it should "Problem 7" in {
+    import Part1.Problem7._
+
+    type Example7[A] = C[A, String]
+
+    // Now have type class instance for Example7
+    implicitly[ContraFilterableWithFilter[Example7]]
+
+    // Define equal for Example7
+    def e7Equal[A: Arbitrary](x: Example7[A], y: Example7[A]): Assertion =
+      forAll { (a1: A, a2: A, a3: A) ⇒ x(a1, a2, a3) shouldEqual y(a1, a2, a3) }
+
+    checkContraFilterableLawsWithFilter[Example7, Int, String](e7Equal)
   }
 
 }
