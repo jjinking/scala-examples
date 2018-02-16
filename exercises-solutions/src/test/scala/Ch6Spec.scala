@@ -23,14 +23,13 @@ class Ch6Spec extends FlatSpec with FilterableLawChecking with ContraFilterableL
 
     val result: Confucious[String] = for {
       x ← data
-      if x == "thu" // forget before thu
+      if Seq("thu", "fri", "sat").contains(x) // forget before thu
       y = s"$x drink"
     } yield y
 
     result shouldEqual ForgotWed("thu drink", "fri drink", "sat drink")
 
-    // Fails
-    //checkFilterableLawsWithFilter[Confucious, Boolean, Int]()
+    checkFilterableLawsWithFilter[Confucious, Boolean, Int]()
   }
 
   it should "Problem 2" in {

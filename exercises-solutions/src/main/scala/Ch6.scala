@@ -28,21 +28,25 @@ object Ch6 {
         override def withFilter[A](p: A => Boolean)(fa: Confucious[A]): Confucious[A] = fa match {
           case ForgotAll() => ForgotAll()
           case ForgotFri(wSat) => if (!p(wSat)) ForgotAll() else fa
-          case ForgotThu(wFri, wSat) => if (!p(wFri)) withFilter(p)(ForgotFri(wSat)) else fa
-          case ForgotWed(wThu, wFri, wSat) => if (!p(wThu)) withFilter(p)(ForgotThu(wFri, wSat)) else fa
-          case ForgotTue(wWed, wThu, wFri, wSat) => if (!p(wWed)) withFilter(p)(ForgotWed(wThu, wFri, wSat)) else fa
-          case ForgotMon(wTue, wWed, wThu, wFri, wSat) => if (!p(wTue)) withFilter(p)(ForgotTue(wWed, wThu, wFri, wSat)) else fa
-          case ForgotSun(wMon, wTue, wWed, wThu, wFri, wSat) => if (!p(wMon)) withFilter(p)(ForgotMon(wTue, wWed, wThu, wFri, wSat)) else fa
-          case RememberAll(wSun, wMon, wTue, wWed, wThu, wFri, wSat) => if (!p(wSun)) withFilter(p)(ForgotSun(wMon, wTue, wWed, wThu, wFri, wSat)) else fa
+          case ForgotThu(wFri, wSat) => resultHelper(Seq(wSat, wFri).takeWhile(p))
+          case ForgotWed(wThu, wFri, wSat) => resultHelper(Seq(wSat, wFri, wThu).takeWhile(p))
+          case ForgotTue(wWed, wThu, wFri, wSat) => resultHelper(Seq(wSat, wFri, wThu, wWed).takeWhile(p))
+          case ForgotMon(wTue, wWed, wThu, wFri, wSat) => resultHelper(Seq(wSat, wFri, wThu, wWed, wTue).takeWhile(p))
+          case ForgotSun(wMon, wTue, wWed, wThu, wFri, wSat) => resultHelper(Seq(wSat, wFri, wThu, wWed, wTue, wMon).takeWhile(p))
+          case RememberAll(wSun, wMon, wTue, wWed, wThu, wFri, wSat) => resultHelper(Seq(wSat, wFri, wThu, wWed, wTue, wMon, wSun).takeWhile(p))
+        }
+
+        def resultHelper[A](l: Seq[A]): Confucious[A] = l.length match {
+          case 0 => ForgotAll()
+          case 1 => ForgotFri(l(0))
+          case 2 => ForgotThu(l(1), l(0))
+          case 3 => ForgotWed(l(2), l(1), l(0))
+          case 4 => ForgotTue(l(3), l(2), l(1), l(0))
+          case 5 => ForgotMon(l(4), l(3), l(2), l(1), l(0))
+          case 6 => ForgotSun(l(5), l(4), l(3), l(2), l(1), l(0))
+          case 7 => RememberAll(l(6), l(5), l(4), l(3), l(2), l(1), l(0))
         }
       }
-
-      // Confucious is not a filterable functor because it violates the conjunction law
-      // For example, if you have val c = RememberAll(1, 2, 4, 1, 2, 3, 6)
-      // predicate 1: x > 3
-      // predicate 2: x < 3
-      // filter(p1) ◦ filter(p2) = ForgotMon(4, 1, 2, 3, 6) ◦ filter(p2) = ForgotTue(1, 2, 3, 6)
-      // filter(p1 ◦ p2) = ForgotAll()
     }
 
     object Problem2 {
@@ -52,9 +56,10 @@ object Ch6 {
       }
 
       implicit val evenFilterableIndexedSeq = new FilterableWithFilter[IndexedSeq] {
+
         def evenFilter[A](p: A => Boolean)(fa: IndexedSeq[A]): IndexedSeq[A] = {
-          if (fa.filter(t => !p(t)).length % 2 == 1) IndexedSeq() // Can we do this?
-          else fa.filter(p)
+          val evenFail = (fa.filter(t => !p(t)).length % 2 == 0)
+          fa.filter(x => {p(x) && evenFail})
         }
 
         override def withFilter[A](p: A => Boolean)(fa: IndexedSeq[A]): IndexedSeq[A] =
