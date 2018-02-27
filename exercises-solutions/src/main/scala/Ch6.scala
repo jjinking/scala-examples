@@ -1,11 +1,14 @@
 package swscala
 
+import cats.syntax.functor._
+import cats.syntax.contravariant._
 import cats.{Contravariant, Functor, derive}
-//import cats.syntax.functor._
-//import example.Filterable._
 //import org.scalacheck.ScalacheckShapeless._
 import io.chymyst.ch._
-import example.{ContraFilterableWithFilter, FilterableWithFilter}
+import example.{ContraFilterableWithFilter, FilterableWithFilter, Filterable}
+import example.Filterable._
+//import example.ContraFilterable._
+//import example.ContraFilterableWithFilter._
 
 object Ch6 {
 
@@ -184,4 +187,46 @@ object Ch6 {
     }
   }
 
+  object Part2 {
+
+    object Problem1 {
+
+      implicit def functorF[G[_]: Functor, H[_]: Filterable: Functor] = new Functor[Lambda[X => G[H[X]]]] {
+        override def map[A, B](fa: G[H[A]])(f: A ⇒ B): G[H[B]] = fa.map(_.map(f))
+      }
+
+      implicit def filterableF[G[_]: Functor, H[_]: Filterable: Functor] = new Filterable[Lambda[X => G[H[X]]]] {
+        override def deflate[A](fa: G[H[Option[A]]]): G[H[A]] = fa.map(_.deflate)
+      }
+
+      // type F[T] = G[H[T]]
+      //
+      // Given 1:
+      // H[T] already filterable
+      // fmapOptH(f: A => 1 + B): H[A] => H[B]
+      //
+      // Given 2:
+      // G is a functor
+      // fmapG(f: A => B): G[A] => G[B]
+      //
+      // Define:
+      // fmapOptF(f: A => 1 + B): G[H[A]] => G[H[B]] = fmapG(fmapOptH(f))
+      //
+      // Identity Law:
+      // let f = id<Opt>
+      // f(a) = 0 + a
+      // fmapOptH(f) = id
+      // Hence
+      // fmapOptF(f)(gha: G[H[A]]) = fmapG(fmapOptH(f))(gha) = fmapG(id)(gha) = gha
+      //
+      // Composition Law:
+      // (fmapOptF(f1) ◦ fmapOptF(f2))(gha: G[H[A]])
+      // = fmapOptF(f2)(fmapOptF(f1)(gha))
+      // = fmapOptF(f2)(fmapG(fmapOptH(f1))(gha))         // expanded fmapOptF(f1)
+      // = fmapG(fmapOptH(f2))(fmapG(fmapOptH(f1))(gha))  // expanded fmapOptF(f2)
+      // = fmapG(fmapOptH(f1) ◦ fmapOptH(f2))(gha)        // used composition law for G
+      // = fmapG(fmapOptH(f1 ◦ f2))(gha)                  // used composition law for H
+      // = fmapOptF(f1 ◦ f2)(gha)                         // used def of fmapOptF
+    }
+  }
 }
