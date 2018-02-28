@@ -228,5 +228,49 @@ object Ch6 {
       // = fmapG(fmapOptH(f1 ◦ f2))(gha)                  // used composition law for H
       // = fmapOptF(f1 ◦ f2)(gha)                         // used def of fmapOptF
     }
+
+    object Problem2 {
+      type F[T] = Option[Int ⇒ Option[(T, T)]]
+
+      implicit val functorF: Functor[F] = new Functor[F] {
+        override def map[A, B](fa: F[A])(f: A => B): F[B] = fa match {
+          case Some(iToOptionTuple) => Some { (i: Int) =>
+            iToOptionTuple(i) match {
+              case Some((a1, a2)) => Some(f(a1), f(a2))
+              case _ => None
+            }
+          }
+          case _ => None
+        }
+      }
+
+      implicit val filterableF = new Filterable[F] {
+        override def deflate[A](fa: F[Option[A]]): F[A] = fa.map {
+          (iToOptionTuple) => { (i: Int) =>
+            iToOptionTuple(i) match {
+              case Some((Some(a1), Some(a2))) => {
+                Some((a1, a2))
+              }
+              case _ => None
+            }
+          }
+        }
+      }
+
+      // F[T] = 1 + (Int => (1 + (T x T)))
+      // R1 = 1 + (T x T)  R1 is filterable by construction 5  F[A] = P + A x A x ... x A x G[A], where G[A] is a constant functor in R1
+      // R2 = Int          R2 is filterable by construction 1
+      // R3 = R2 => R1     R3 is filterable since R2 and R1 are both filterable and R2 is a constant contrafunctor, by construction 7
+      // F[T] = 1 + R3     construction 3
+    }
+
+    object Problem3 {
+      // F[A] = G[A] + Int × A × A × F[A] for filterable functor G[A]
+      //implicit def functorF[G[_]: Functor, ]
+
+    }
+
+
+
   }
 }
