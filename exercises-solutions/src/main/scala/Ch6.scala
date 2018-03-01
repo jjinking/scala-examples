@@ -266,8 +266,98 @@ object Ch6 {
 
     object Problem3 {
       // F[A] = G[A] + Int × A × A × F[A] for filterable functor G[A]
-      //implicit def functorF[G[_]: Functor, ]
+      sealed trait F[G[_], A]
+      final case class Foo[G[_], A](ga: G[A]) extends F[G, A]
+      final case class Bar[G[_], A](i: Int, a1: A, a2: A, r: F[G, A]) extends F[G, A]
 
+      implicit def functorF[G[_]: Filterable: Functor] = new Functor[Lambda[X => F[G, X]]] {
+        override def map[A, B](fa: F[G, A])(f: A => B): F[G, B] = fa match {
+          case Foo(ga) => Foo(ga.map(f))
+          case Bar(i, a1, a2, r) => Bar(i, f(a1), f(a2), map(r)(f))
+        }
+      }
+
+      implicit def filterableF[G[_]: Filterable: Functor] = new Filterable[Lambda[X => F[G, X]]] {
+        override def deflate[A](fa: F[G, Option[A]]): F[G, A] = fa match {
+          case Foo(gOptA) => Foo(gOptA.deflate)
+          case Bar(i, optA1, optA2, optR) => (optA1, optA2) match {
+            case (Some(a1), Some(a2)) => Bar(i, a1, a2, deflate(optR))
+            case _ => deflate(optR)
+          }
+        }
+      }
+
+      // F[A] = G[A] + Int × A × A × F[A] for filterable functor G[A]
+      //
+      // Given:
+      // G[A] is filterable
+      // fmapOptG(f: A => 1 + B): G[A] => G[B]
+      //
+      // Define:
+      // def fmapOptF[G[_], A, B](f: A => Option[B]): F[G, A] => F[G, B] = {
+      //   case Foo(ga: G[A]) => Foo(fmapOptG(f)(ga))
+      //   case Bar(i, a1, a2, r) => (f(a1), f(a2)) match {
+      //     case (Some(b1), Some(b2)) => Bar(i, b1, b2, fmapOptF(f)(r))
+      //     case _ => fmapOptF(f)(r)
+      //   }
+      // }
+      //
+      // Identity Law:
+      // let f = id<Opt> = (a: A) => Some(a)
+      // f(a) = Some(a)
+      // fmapOptG(f) = id
+      // if fga = Foo(ga: G[A]), fmapOptF(f)(fga) will return Foo(id(ga)) = Foo(ga)
+      // if fga = Bar(i, a1, a2, r)
+      //   f(a1) = id<Opt>(a1) = Some(a1)
+      //   f(a2) = id<Opt>(a2) = Some(a2)
+      //   inductive assumption: fmapOptF'(f)(r) = r
+      //   therefore fmaptOptF(f)(fga) will return Bar(i, a1, a2, r) = fga
+      //
+      // Composition Law:
+      // let f1: A => B and f2: B => C
+      // (fmapOptF(f1) ◦ fmapOptF(f2))(fga: F[G[_], A])
+      //   = fmapOptF(f2)(fmapOptF(f1)(fga))  (*)
+      //
+      //   if fga = Foo(ga: G[A])
+      //   (*) becomes
+      //   fmapOptF(f2)(Foo(fmapOptG(f1)(ga)))
+      //     = Foo(fmapOptG(f2)(fmapOptG(f1)(ga)))
+      //     = Foo(fmapOptG(f1) ◦ fmapOptG(f2)(ga))
+      //     = Foo(fmapOptG(f1 ◦ f2)(ga))
+      //     = fmapOptF(f1 ◦ f2)(fga)  <*>
+      //
+      //   if fga = Bar(i, a1, a2, r)
+      //     if f1(a1) = Some(b1) and f2(a1) = Some(b2)
+      //       (*) becomes
+      //       fmapOptF(f2)(Bar(i, b1, b2, fmapOptF'(f1)(r))) (**)
+      //         if f2(b1) = Some(c1) and f2(b2) = Some(c2)
+      //           (**) becomes
+      //           Bar(i, c1, c2, fmapOptF'(f2)(fmapOptF'(f1)(r)))
+      //           = Bar(i, c1, c2, fmapOptF'(f1) ◦ fmapOptF'(f2)(r))
+      //           = Bar(i, f1(f2)(a1), f1(f2)(a2), fmapOptF'(f1 ◦ f2)(r))
+      //           = fmapOptF(f1 ◦ f2)(fga)
+      //
+      //         else if f2(b1) = None or f2(b2) = None
+      //           (**) becomes
+      //           fmapOptF'(f2)(fmapOptF'(f1)(r))
+      //             = ((fmapOptF'(f1)) ◦ (fmapOptF'(f2)))(r) (***)
+      //             inductive assumption: fmapOptF' satisfies composition law
+      //             (***) becomes
+      //             = fmapOptF'(f1 ◦ f2)(r)
+      //             this is equivalent to fmapOptF(f1 ◦ f2)(fga) for cases where
+      //             f2(b1) = None or f2(b2) = None
+      //
+      //     else if f1(a1) = None or f1(a2) = None
+      //       (*) becomes
+      //       fmapOptF(f2)(fmapOptF'(f1)(r)) (****)
+      //       if fmapOptF'(f1)(r) returns Foo(ga2)
+      //         (****) becomes Foo(fmapOptG(f2)(ga2))
+      //           = Foo(fmapOptG(f2)(ga2))
+      //           = Foo(fmapOptG(f2)(fmapOptG(f1)(ga2')) since ga2 = fmapOptG(f)(ga2')
+      //           = fmapOptF(f1 ◦ f2)(fga) Similar to <*>
+      //           This is unlikely though, as fmapOptF is unlikely to return a Foo
+      //             for an input of type Bar
+      //       if fmapOptF'(f1)(r) returns Bar(_), then we are back at (**)
     }
 
 
