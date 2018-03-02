@@ -360,7 +360,38 @@ object Ch6 {
       //       if fmapOptF'(f1)(r) returns Bar(_), then we are back at (**)
     }
 
+    object Problem4 {
 
+      // F[A] = 1 + A x G[A]
+      // G[_] is not a filterable functor
+      // Prove F[_] is not filterable
+      // Proof by counterexample
 
+      final case class G[A](a: A)
+
+      implicit val functorG = derive.functor[G]
+
+      type F[G[_], A] = Option[(A, G[A])]
+
+      implicit def functorF[G[_]: Functor] = new Functor[Lambda[X => F[G, X]]] {
+        override def map[A, B](fa: F[G, A])(f: A => B): F[G, B] = fa match {
+          case Some((a, ga)) => Some((f(a), ga.map(f)))
+          case None => None
+        }
+      }
+
+      implicit def filterableF[G[_]: Functor] = new Filterable[Lambda[X => F[G, X]]] {
+        override def deflate[A](fa: F[G, Option[A]]): F[G, A] = fa match {
+          case Some((optA, gOptA)) => None
+          case None => None
+        }
+      }
+      //
+      // Cannot implement an instance of filterableF because when optA is 1 + 0,
+      // there is nowhere to get an instance of A. Then the only thing we can do is
+      // return None, but that breaks the identity law
+    }
+
+    
   }
 }

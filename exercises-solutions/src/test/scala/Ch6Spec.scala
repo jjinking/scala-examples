@@ -106,4 +106,29 @@ class Ch6Spec extends FlatSpec with FilterableLawChecking with ContraFilterableL
     checkContraFilterableLawsWithFilter[Example7, Int, String](e7Equal)
   }
 
+  behavior of "Exercises 2"
+
+  // it should "Problem 4" in {
+  //   import Part2.Problem4._
+
+  //   checkFilterableLaws[Lambda[X => F[G, X]], Boolean, String, Int]()
+
+  //   // import cats.syntax.functor._
+  //   // import cats.syntax.contravariant._
+  //   // import cats.{Contravariant, Functor, derive}
+  //   // import example.{ContraFilterableWithFilter, FilterableWithFilter, Filterable}
+  //   // import example.Filterable._
+
+  //   // type F[A] = Option[(A, A)]
+
+  //   // implicit def functorF: Functor[F] = derive.functor[F]
+
+  //   // implicit def filterableF = new Filterable[F] {
+  //   //   override def deflate[A](fa: F[Option[A]]): F[A] = fa match {
+  //   //     case _ => None
+  //   //   }
+  //   // }
+
+  //   // checkFilterableLaws[F, Boolean, Boolean, Boolean]()
+  // }
 }
