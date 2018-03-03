@@ -408,50 +408,24 @@ object Ch6 {
 
       //type F[G[_], H[_], A] = Option[Either[G[A], H[A]]]
 
-      /**
-      implicit def functorF[G[_]: Functor, H[_]: Functor] = new Functor[Lambda[X => Option[Either[G[X], H[X]]]]] {
-        override def map[A, B](fa: Option[Either[G[A], H[A]]])(f: A => B): Option[Either[G[B], H[B]]] = fa match {
-          case Some(Left(ga: G[A])) => Some(Left(ga.map(f)))
-          case Some(Right(ha: H[A])) => Some(Right(ha.map(f)))
-          case None => None
-        }
-      }
-
-      implicit def filterableF[G[_]: Functor, H[_]: Functor] = new Filterable[Lambda[X => Option[Either[G[X], H[X]]]]] {
-
-        def extractOpt[A, G[_]: Functor](gOptA: G[Option[A]]): Option[G[A]] = implement
-
-        override def deflate[A](fa: Option[Either[G[Option[A]], H[Option[A]]]]): Option[Either[G[A], H[A]]] = fa match {
-          case Some(Left(ga: G[Option[A]])) => Some(Left(ga.deflate))
-          case Some(Right(ha: H[Option[A]])) => Some(Right(ha.deflate))
-          case None => None
-        }
-      }
-        */
-
       sealed trait F[G[_], H[_], A]
       final case class FG[G[_], H[_], A](ga: G[A]) extends F[G, H, A]
       final case class FH[G[_], H[_], A](ha: H[A]) extends F[G, H, A]
       final case class F1[G[_], H[_], A]() extends F[G, H, A]
 
-      implicit def functorF[G[_]: Functor, H[_]: Functor] = new Functor[Lambda[X => F[G, H, X]]] {
-        override def map[A, B](fa: F[G, H, A])(f: A => B): F[G, H, B] = fa match {
-          case FG(ga) => FG(ga.map(f))
-          case FH(ha) => FH(ha.map(f))
-          case F1() => F1()
-        }
-      }
-
-      // Problem assumes we have Option[G[Option[A]]] => Option[G[A]] and Option[H[Option[A]]] => Option[H[A]]
-      // Since we have `Option[G[Option[A]]] => Option[G[A]]` since 1 + G is deflatable
-      // and we need `G[Option[A]] => G[A]` to implement deflate for F
-      // if we can convert `G[Option[A]]` to `Option[G[Option[A]]] ` and `Option[G[A]] to G[A]` then we have the solution
+      // Since 1 + G is filterable, G[_].deflate exists, which means we have
+      // Option[G[Option[A]]] => Option[G[A]]
+      // Same for H[_].deflate
+      //
+      // We need `G[Option[A]] => G[A]` to implement deflate for F
+      // If we can convert `G[Option[A]]` to `Option[G[Option[A]]]` and `Option[G[A]] to G[A]`
+      // then we have the solution
       // Create an arbitrary filterable functor 1 + J
       type J[A] = A
 
       implicit val functorOptJ = new Functor[Lambda[X => Option[J[X]]]] {
-        override def map[A](optJA: Option[J[A]])(f: A => B): Option[J[B]] = optJA match {
-          case Some(a: J[B]) => Some(f(a))
+        override def map[A, B](optJA: Option[J[A]])(f: A => B): Option[J[B]] = optJA match {
+          case Some(a: J[A]) => Some(f(a))
           case _ => None
         }
       }
@@ -470,24 +444,46 @@ object Ch6 {
         // }
       }
 
-      implicit val filterableF = new Filterable[Lambda[X => F[J, J, X]]] {
+      // Now we implement filterable functor F[J, J, A]
+
+      // implicit def functorF[G[_]: Functor, H[_]: Functor] = new Functor[Lambda[X => F[G, H, X]]] {
+      //   override def map[A, B](fa: F[G, H, A])(f: A => B): F[G, H, B] = fa match {
+      //     case FG(ga) => FG(ga.map(f))
+      //     case FH(ha) => FH(ha.map(f))
+      //     case F1() => F1()
+      //   }
+      // }
+      implicit def functorF = new Functor[Lambda[X => F[J, J, X]]] {
+        override def map[A, B](fa: F[J, J, A])(f: A => B): F[J, J, B] = fa match {
+          case FG(ga) => FG(ga.map(f))
+          case FH(ha) => FH(ha.map(f))
+          case F1() => F1()
+        }
+      }
+
+      implicit def filterableF = new Filterable[Lambda[X => F[J, J, X]]] {
         override def deflate[A](fOptA: F[J, J, Option[A]]): F[J, J, A] = fOptA match {
           case FG(gOptA: J[Option[A]]) => {
             val optJOptA: Option[J[Option[A]]] = Some(gOptA)
-            val optJA = optJOptJ.deflate
+            val optJA: Option[J[A]] = optJOptA.deflate
             optJA match {
-              case Some(a) => FG(a)
+              case Some(a: J[A]) => FG(a)
               case None => F1()
             }
           }
           case FH(hOptA: J[Option[A]]) => {
-            Some(hOptA).deflate match {
-              case Some(a) => FH(a)
+            val optJOptA: Option[J[Option[A]]] = Some(hOptA)
+            optJOptA.deflate match {
+              case Some(a: J[A]) => FH(a)
               case None => F1()
             }
           }
           case _ => F1()
+        }
       }
+
+      // This can be generalized for any G[_] or H[_] where 1 + G[_] and 1 + H[_] are filterable
+
 
       // implicit def filterableF[G[_]: Functor, H[_]: Functor] = new Filterable[Lambda[X => F[G, H, X]]] {
       //   override def deflate[A](fOptA: F[G, H, Option[A]]): F[G, H, A] = fOptA match {
