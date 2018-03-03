@@ -5,7 +5,7 @@ import cats.syntax.contravariant._
 import cats.{Contravariant, Functor, derive}
 //import org.scalacheck.ScalacheckShapeless._
 import io.chymyst.ch._
-import example.{ContraFilterableWithFilter, FilterableWithFilter, Filterable}
+import example.{ContraFilterableWithFilter, FilterableWithFilter, Filterable, ContraFilterable}
 import example.Filterable._
 //import example.ContraFilterable._
 //import example.ContraFilterableWithFilter._
@@ -474,17 +474,46 @@ object Ch6 {
       }
     }
  
-    // object Problem6 {
-    //   // F[A] = A + (Int => A)
-    //   // Show F[_] is not filterable
+    object Problem6 {
+      // F[A] = A + (Int => A)
+      // Show F[_] is not filterable
 
-    //   type F[A] = Either[A, Int => A]
+      // type F[A] = Either[A, Int => A]
 
-    //   //implicit val functorF =
-    //   implicit val filterableF = new Filterable[F] {
-    //     override def deflate[A](fOptA: F[Option[A]]): F[A] = 
-    //   }
+      // //implicit val functorF =
+      // implicit val filterableF = new Filterable[F] {
+      //   override def deflate[A](fOptA: F[Option[A]]): F[A] = fOptA match {
+      //     case Left(Some(a: A)) => Left(a)
+      //     case Left(None) => ??? // there is no way to produce a value of type A or Int => A
+      // }
+    }
 
-    // }
+    object Problem7 {
+      // Given contrafunctor C[A], show that we can define "deflate: C[1 + A] => C[A]"
+      // Solution: just wrap Some(...) to the value before the arrow, and use that as
+      // argument into C[Option[A]]
+
+      type C[A] = Option[A] => Int
+
+      implicit val contrafunctorC = new Contravariant[C] {
+        override def contramap[A, B](ca: C[A])(f: B ⇒ A): C[B] = {
+          case Some(b: B) => ca(Some(f(b)))
+          case None => ca(None)
+        }
+      }
+
+      implicit val contrafilterableC = new ContraFilterable[C] {
+        override def inflate[A](ca: C[A]): C[Option[A]] = {
+          case Some(optA: Option[A]) => ca(optA)
+          case None => ca(None)
+        }
+      }
+
+      def deflateC[A](cOptA: C[Option[A]]): C[A] = { (optA: Option[A]) =>
+        val optOptA: Option[Option[A]] = Some(optA)
+        val i: Int = cOptA(optOptA)
+        i
+      }
+    }
   }
 }
