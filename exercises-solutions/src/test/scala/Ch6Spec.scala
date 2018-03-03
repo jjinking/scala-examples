@@ -108,10 +108,12 @@ class Ch6Spec extends FlatSpec with FilterableLawChecking with ContraFilterableL
 
   behavior of "Exercises 2"
 
-  it should "Problem 1" in {
+  it should "Problem 5" in {
     import Part2.Problem5._
 
-    checkFilterableLaws[Lambda[X => F[J, J, X]], Int, Boolean, String]()
+    type K[A] = F[J, J, A]
+
+    checkFilterableLaws[K, Int, Boolean, String]()
   }
 
 }
