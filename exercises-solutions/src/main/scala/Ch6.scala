@@ -367,31 +367,55 @@ object Ch6 {
       // Prove F[_] is not filterable
       // Proof by counterexample
 
-      final case class G[A](a: A)
+      type G[A] = Int => A
 
-      implicit val functorG = derive.functor[G]
+      implicit val functorG = new Functor[G] {
+        override def map[A, B](ga: G[A])(f: A => B): G[B] = i => f(ga(i))
+      }
 
-      type F[G[_], A] = Option[(A, G[A])]
+      type F[A] = Option[(A, G[A])]
 
-      implicit def functorF[G[_]: Functor] = new Functor[Lambda[X => F[G, X]]] {
-        override def map[A, B](fa: F[G, A])(f: A => B): F[G, B] = fa match {
+      implicit val functorF = new Functor[F] {
+        override def map[A, B](fa: F[A])(f: A => B): F[B] = fa match {
           case Some((a, ga)) => Some((f(a), ga.map(f)))
           case None => None
         }
       }
 
-      implicit def filterableF[G[_]: Functor] = new Filterable[Lambda[X => F[G, X]]] {
-        override def deflate[A](fa: F[G, Option[A]]): F[G, A] = fa match {
-          case Some((optA, gOptA)) => None
-          case None => None
+      implicit val filterableF = new Filterable[F] {
+        override def deflate[A](fa: F[Option[A]]): F[A] = fa match {
+          case Some((Some(a), gOptA)) => {
+            val intToA: Int => A = { i =>
+              gOptA(i) match {
+                case Some(aVal) => aVal
+                case None => ??? // there is no way to produce a value of type A
+              }
+            }
+          }
+          case _ => None
         }
       }
-      //
+
       // Cannot implement an instance of filterableF because when optA is 1 + 0,
-      // there is nowhere to get an instance of A. Then the only thing we can do is
-      // return None, but that breaks the identity law
+      // there is nowhere to get an instance of A
     }
 
-    
+    object Problem5 {
+      // F[A] = 1 + G[A] + H[A]
+      // 1 + G[A] and 1 + H[A] are filterable
+      // G[A] and H[A] may not be filterable
+      // Show F[_] is filterable
+
+    }
+
+    // object Problem6 {
+    //   // F[A] = A + (Int => A)
+    //   // Show F[_] is not filterable
+
+    //   type F[A] = Either[A, Int => A]
+
+    //   implicit val functorF = derive.functor[F]
+
+    // }
   }
 }
