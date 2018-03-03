@@ -382,19 +382,19 @@ object Ch6 {
         }
       }
 
-      implicit val filterableF = new Filterable[F] {
-        override def deflate[A](fa: F[Option[A]]): F[A] = fa match {
-          case Some((Some(a), gOptA)) => {
-            val intToA: Int => A = { i =>
-              gOptA(i) match {
-                case Some(aVal) => aVal
-                case None => ??? // there is no way to produce a value of type A
-              }
-            }
-          }
-          case _ => None
-        }
-      }
+      // implicit val filterableF = new Filterable[F] {
+      //   override def deflate[A](fa: F[Option[A]]): F[A] = fa match {
+      //     case Some((Some(a), gOptA)) => {
+      //       val intToA: Int => A = { i =>
+      //         gOptA(i) match {
+      //           case Some(aVal) => aVal
+      //           case None => ??? // there is no way to produce a value of type A
+      //         }
+      //       }
+      //     }
+      //     case _ => None
+      //   }
+      // }
 
       // Cannot implement an instance of filterableF because when optA is 1 + 0,
       // there is nowhere to get an instance of A
@@ -406,15 +406,114 @@ object Ch6 {
       // G[A] and H[A] may not be filterable
       // Show F[_] is filterable
 
-    }
+      //type F[G[_], H[_], A] = Option[Either[G[A], H[A]]]
 
+      /**
+      implicit def functorF[G[_]: Functor, H[_]: Functor] = new Functor[Lambda[X => Option[Either[G[X], H[X]]]]] {
+        override def map[A, B](fa: Option[Either[G[A], H[A]]])(f: A => B): Option[Either[G[B], H[B]]] = fa match {
+          case Some(Left(ga: G[A])) => Some(Left(ga.map(f)))
+          case Some(Right(ha: H[A])) => Some(Right(ha.map(f)))
+          case None => None
+        }
+      }
+
+      implicit def filterableF[G[_]: Functor, H[_]: Functor] = new Filterable[Lambda[X => Option[Either[G[X], H[X]]]]] {
+
+        def extractOpt[A, G[_]: Functor](gOptA: G[Option[A]]): Option[G[A]] = implement
+
+        override def deflate[A](fa: Option[Either[G[Option[A]], H[Option[A]]]]): Option[Either[G[A], H[A]]] = fa match {
+          case Some(Left(ga: G[Option[A]])) => Some(Left(ga.deflate))
+          case Some(Right(ha: H[Option[A]])) => Some(Right(ha.deflate))
+          case None => None
+        }
+      }
+        */
+
+      sealed trait F[G[_], H[_], A]
+      final case class FG[G[_], H[_], A](ga: G[A]) extends F[G, H, A]
+      final case class FH[G[_], H[_], A](ha: H[A]) extends F[G, H, A]
+      final case class F1[G[_], H[_], A]() extends F[G, H, A]
+
+      implicit def functorF[G[_]: Functor, H[_]: Functor] = new Functor[Lambda[X => F[G, H, X]]] {
+        override def map[A, B](fa: F[G, H, A])(f: A => B): F[G, H, B] = fa match {
+          case FG(ga) => FG(ga.map(f))
+          case FH(ha) => FH(ha.map(f))
+          case F1() => F1()
+        }
+      }
+
+      // Problem assumes we have Option[G[Option[A]]] => Option[G[A]] and Option[H[Option[A]]] => Option[H[A]]
+      // Since we have `Option[G[Option[A]]] => Option[G[A]]` since 1 + G is deflatable
+      // and we need `G[Option[A]] => G[A]` to implement deflate for F
+      // if we can convert `G[Option[A]]` to `Option[G[Option[A]]] ` and `Option[G[A]] to G[A]` then we have the solution
+      // Create an arbitrary filterable functor 1 + J
+      type J[A] = A
+
+      implicit val functorOptJ = new Functor[Lambda[X => Option[J[X]]]] {
+        override def map[A](optJA: Option[J[A]])(f: A => B): Option[J[B]] = optJA match {
+          case Some(a: J[B]) => Some(f(a))
+          case _ => None
+        }
+      }
+
+      implicit val filterableOptJ = new Filterable[Lambda[X => Option[J[X]]]] {
+        // 1 + J[1+A] => 1 + J
+        // Note: Option[J[Option[A]]] = Option[Option[A]] and Option[J[A]] = Option[A]
+        override def deflate[A](optJOptA: Option[J[Option[A]]]): Option[J[A]] =
+          optJOptA.flatten 
+          // optJOptA match {
+        //   case Some(jOptA: J[Option[A]]) => jOptA match {
+        //     case Some[A](a) => Some(a)
+        //     case _ => None
+        //   }
+        //   case _ => None
+        // }
+      }
+
+      implicit val filterableF = new Filterable[Lambda[X => F[J, J, X]]] {
+        override def deflate[A](fOptA: F[J, J, Option[A]]): F[J, J, A] = fOptA match {
+          case FG(gOptA: J[Option[A]]) => {
+            val optJOptA: Option[J[Option[A]]] = Some(gOptA)
+            val optJA = optJOptJ.deflate
+            optJA match {
+              case Some(a) => FG(a)
+              case None => F1()
+            }
+          }
+          case FH(hOptA: J[Option[A]]) => {
+            Some(hOptA).deflate match {
+              case Some(a) => FH(a)
+              case None => F1()
+            }
+          }
+          case _ => F1()
+      }
+
+      // implicit def filterableF[G[_]: Functor, H[_]: Functor] = new Filterable[Lambda[X => F[G, H, X]]] {
+      //   override def deflate[A](fOptA: F[G, H, Option[A]]): F[G, H, A] = fOptA match {
+      //     case FG(gOptA: G[Option[A]]) => gOptA match {
+      //       case Some(a) => FG(a)
+      //       case _ => F1()
+      //     }
+      //     case FH(hOptA) => haOpt match {
+      //       case Some(a) => FH(a)
+      //       case _ => F1()
+      //     }
+      //     case _ => F1()
+      //   }
+      // }
+    }
+ 
     // object Problem6 {
     //   // F[A] = A + (Int => A)
     //   // Show F[_] is not filterable
 
     //   type F[A] = Either[A, Int => A]
 
-    //   implicit val functorF = derive.functor[F]
+    //   //implicit val functorF =
+    //   implicit val filterableF = new Filterable[F] {
+    //     override def deflate[A](fOptA: F[Option[A]]): F[A] = 
+    //   }
 
     // }
   }
