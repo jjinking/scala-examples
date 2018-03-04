@@ -493,27 +493,39 @@ object Ch6 {
       // Solution: just wrap Some(...) to the value before the arrow, and use that as
       // argument into C[Option[A]]
 
-      type C[A] = Option[A] => Int
-
-      implicit val contrafunctorC = new Contravariant[C] {
-        override def contramap[A, B](ca: C[A])(f: B ⇒ A): C[B] = {
-          case Some(b: B) => ca(Some(f(b)))
-          case None => ca(None)
-        }
+      def deflate[C[_]: Contravariant, A]: C[Option[A]] => C[A] = { (cOpt: C[Option[A]]) =>
+        // have
+        // contramap: C[X] => (Y => X) => C[Y]
+        // X = Option[A]
+        // Y = A
+        // Y => X === (a: A) => Some(a)
+        cOpt.contramap((a: A) => Some(a))
       }
 
-      implicit val contrafilterableC = new ContraFilterable[C] {
-        override def inflate[A](ca: C[A]): C[Option[A]] = {
-          case Some(optA: Option[A]) => ca(optA)
-          case None => ca(None)
-        }
-      }
+      ///////// Specific example
+      // type C[A] = Option[A] => Int
 
-      def deflateC[A](cOptA: C[Option[A]]): C[A] = { (optA: Option[A]) =>
-        val optOptA: Option[Option[A]] = Some(optA)
-        val i: Int = cOptA(optOptA)
-        i
-      }
+      // implicit val contrafunctorC = new Contravariant[C] {
+      //   override def contramap[A, B](ca: C[A])(f: B ⇒ A): C[B] = {
+      //     case Some(b: B) => ca(Some(f(b)))
+      //     case None => ca(None)
+      //   }
+      // }
+
+      // implicit val contrafilterableC = new ContraFilterable[C] {
+      //   override def inflate[A](ca: C[A]): C[Option[A]] = {
+      //     case Some(optA: Option[A]) => ca(optA)
+      //     case None => ca(None)
+      //   }
+      // }
+
+      // def deflateC[A](cOptA: C[Option[A]]): C[A] = { (optA: Option[A]) =>
+      //   val optOptA: Option[Option[A]] = Some(optA)
+      //   val i: Int = cOptA(optOptA)
+      //   i
+      // }
+      /////////
+
     }
   }
 }
